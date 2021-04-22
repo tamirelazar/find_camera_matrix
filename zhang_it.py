@@ -1,3 +1,4 @@
+import re
 import sys
 import os
 import cv2
@@ -27,8 +28,8 @@ def sort_sad(corners):
 
     return np.int0(sorted)
 
-def get_warped_circular(img):
 
+def get_warped_circular(img):
     corners2 = IMAGE_POINTS.copy()
 
     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
@@ -37,14 +38,13 @@ def get_warped_circular(img):
     corners1 = cv2.goodFeaturesToTrack(gray, 4, 0.01, 10)
     corners1 = np.int0(corners1)
 
-    corners1 = sort_sad(corners1)
-
     homo, _ = cv2.findHomography(corners1, corners2)
 
     circular = CIRCULAR_POINTS.copy().transpose()
-    circular_warped = np.matmul(homo, circular)
+    circular_warped_a = np.matmul(homo, circular[:, 0])
+    circular_warped_b = np.matmul(homo, circular[:, 1])
 
-    return warped_circular
+    return [circular_warped_a, circular_warped_b]
 
 
 def calculate_conic(points):
@@ -52,7 +52,7 @@ def calculate_conic(points):
     y = points[:, 1]
 
     Mat = np.vstack([x ** 2, x * y, y ** 2, x, y]).T
-    fullSolution = np.linalg.lstsq(Mat, np.ones(x.size))
+    fullSolution = np.linalg.lstsq(Mat, np.ones(x.size), rcond=None)
     (a, b, c, d, e) = fullSolution[0]
     ret = np.array([[a, b / 2, d / 2],
            [b / 2, c, e / 2],
@@ -68,7 +68,7 @@ if __name__ == "__main__":
     except Exception:
         raise Exception("GIVE ME IMAGES!!")
 
-    images = os.listdir(images_path)
+    images = [f for f in os.listdir(images_path) if re.match(r'.*\.(jpeg|jpg|png)', f)]
     if not len(images) == 3:
         print("The pics I got were: \n")
         print(images)
@@ -76,10 +76,18 @@ if __name__ == "__main__":
 
     warped_circular = []
     for image in images:
-        with cv2.imread(image) as im:
-            warped_circular.append(get_warped_circular(im))
+        im = cv2.imread(images_path + "/" + image)
+        warped_circular += (get_warped_circular(im))
+
+    warped_circular = np.array(warped_circular)
 
     conic = calculate_conic(warped_circular)
+    # print(conic)
+    a, s_mat, b = np.linalg.svd(conic)
+    new_conic = np.matmul(a, s_mat, b)
+    # print(new_conic)
+
+
     camera_mat = np.linalg.cholesky(conic)
     # warped = cv2.warpPerspective(image, homo, (1, 1))
     #
@@ -94,4 +102,4 @@ if __name__ == "__main__":
 
     # cv2.waitKey(0)
     #
-    # cv2.destroyAllWindows()
+    cv2.destroyAllWindows()
