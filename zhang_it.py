@@ -102,5 +102,5 @@ if __name__ == "__main__":
     camera_mat = np.linalg.cholesky(conic)
     camera_mat = np.real(camera_mat.T / camera_mat[2, 2])
     print("\nThe camera calibration matrix calculated from the pictures in " + images_path + "/ is:")
-    print(camera_mat)
+    print(np.real(camera_mat))
     print("\nCalibrate responsibly!")
